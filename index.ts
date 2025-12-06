@@ -10,7 +10,7 @@ async function main() {
     const amountInLamports = BigInt(Math.floor(solAmount * LAMPORTS_PER_SOL));
     const amountInTokens = BigInt(Math.floor(tokenAmount * 10 ** 6));
 
-    await swapMeteora({
+    await swapRaydium({
       tokenAddress: "5SQ4AnAyPf8veVLkTkVb6xYFsQohMVEeHGULkydai454",
       amount: tokenAmount,
       side: "sell",

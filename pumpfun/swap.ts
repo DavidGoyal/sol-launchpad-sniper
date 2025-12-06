@@ -5,8 +5,8 @@ import {
 } from "../constants/pumpfun/non-migrated";
 import type { BondingCurveState } from "./calculate-tokens";
 import { calculateMinTokensOut } from "./calculate-tokens";
-import { swapNonMigrated } from "./swap-non-migrated";
 import { swapMigrated } from "./swap-migrated";
+import { swapNonMigrated } from "./swap-non-migrated";
 
 export async function swapPumpfun({
   tokenAddress,

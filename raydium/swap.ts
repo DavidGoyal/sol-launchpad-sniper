@@ -1,6 +1,10 @@
 import { API_URLS } from "@raydium-io/raydium-sdk-v2";
-import axios from "axios";
-import { connection, keypair } from "../constants/constants";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  getMint,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -8,12 +12,8 @@ import {
   Transaction,
   VersionedTransaction,
 } from "@solana/web3.js";
-import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  getMint,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import axios from "axios";
+import { connection, keypair } from "../constants/constants";
 
 export async function swapRaydium({
   tokenAddress,
@@ -30,13 +30,13 @@ export async function swapRaydium({
   const isV0Tx = txVersion === "V0";
   const wSolMint = new PublicKey("So11111111111111111111111111111111111111112");
   const tokenAddressPublicKey = new PublicKey(tokenAddress);
-  const tokenAccountInfo = await connection.getAccountInfo(
-    tokenAddressPublicKey
-  );
+  const [tokenAccountInfo, tokenMint] = await Promise.all([
+    connection.getAccountInfo(tokenAddressPublicKey),
+    getMint(connection, tokenAddressPublicKey),
+  ]);
   if (!tokenAccountInfo) {
     throw new Error("Token account not found.");
   }
-  const tokenMint = await getMint(connection, tokenAddressPublicKey);
   if (!tokenMint) {
     throw new Error("Token mint not found.");
   }
@@ -62,17 +62,18 @@ export async function swapRaydium({
     if (side === "buy") {
       const amountInLamports = BigInt(Math.floor(amount * LAMPORTS_PER_SOL));
 
-      const { data: swapResponse } = await axios.get(
-        `${
-          API_URLS.SWAP_HOST
-        }/compute/swap-base-in?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddressPublicKey.toBase58()}&amount=${amountInLamports}&slippageBps=${slippage}&txVersion=${txVersion}`
-      );
-
-      const { data } = await axios.get<{
-        id: string;
-        success: boolean;
-        data: { default: { vh: number; h: number; m: number } };
-      }>(`${API_URLS.BASE_HOST}${API_URLS.PRIORITY_FEE}`);
+      const [{ data: swapResponse }, { data }] = await Promise.all([
+        axios.get(
+          `${
+            API_URLS.SWAP_HOST
+          }/compute/swap-base-in?inputMint=So11111111111111111111111111111111111111112&outputMint=${tokenAddressPublicKey.toBase58()}&amount=${amountInLamports}&slippageBps=${slippage}&txVersion=${txVersion}`
+        ),
+        axios.get<{
+          id: string;
+          success: boolean;
+          data: { default: { vh: number; h: number; m: number } };
+        }>(`${API_URLS.BASE_HOST}${API_URLS.PRIORITY_FEE}`),
+      ]);
 
       const { data: swapTransactions } = await axios.post<{
         id: string;
@@ -151,17 +152,18 @@ export async function swapRaydium({
       }
     } else {
       const amountInTokens = BigInt(Math.floor(amount * 10 ** tokenDecimals));
-      const { data: swapResponse } = await axios.get(
-        `${
-          API_URLS.SWAP_HOST
-        }/compute/swap-base-in?inputMint=${tokenAddressPublicKey.toBase58()}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInTokens}&slippageBps=${slippage}&txVersion=${txVersion}`
-      );
-
-      const { data } = await axios.get<{
-        id: string;
-        success: boolean;
-        data: { default: { vh: number; h: number; m: number } };
-      }>(`${API_URLS.BASE_HOST}${API_URLS.PRIORITY_FEE}`);
+      const [{ data: swapResponse }, { data }] = await Promise.all([
+        axios.get(
+          `${
+            API_URLS.SWAP_HOST
+          }/compute/swap-base-in?inputMint=${tokenAddressPublicKey.toBase58()}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInTokens}&slippageBps=${slippage}&txVersion=${txVersion}`
+        ),
+        axios.get<{
+          id: string;
+          success: boolean;
+          data: { default: { vh: number; h: number; m: number } };
+        }>(`${API_URLS.BASE_HOST}${API_URLS.PRIORITY_FEE}`),
+      ]);
 
       const { data: swapTransactions } = await axios.post<{
         id: string;

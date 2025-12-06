@@ -1,11 +1,10 @@
 import {
   LAMPORTS_PER_SOL,
   sendAndConfirmRawTransaction,
-  sendAndConfirmTransaction,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { connection, keypair } from "../constants/constants";
 import axios from "axios";
+import { connection, keypair } from "../constants/constants";
 
 export async function swapMeteora({
   tokenAddress,

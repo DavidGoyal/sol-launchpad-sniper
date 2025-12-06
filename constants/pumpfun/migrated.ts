@@ -1,6 +1,6 @@
+import { Program, type Idl } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import IDL from "../../pumpfun/migrated-idl.json";
-import { Program, type Idl } from "@coral-xyz/anchor";
 import { provider } from "../constants";
 
 export const MIGRATED_PUMP_PROGRAM = new PublicKey(
