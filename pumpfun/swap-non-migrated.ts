@@ -9,8 +9,11 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
-import { connection, keypair } from "../constants/constants";
+import { connection, keypair, nozomiRpcClient } from "../constants/constants";
 import {
   NON_MIGRATED_MAYHEM_FEE_RECIPIENT,
   NON_MIGRATED_NORMAL_FEE_RECIPIENT,
@@ -25,6 +28,9 @@ export async function swapNonMigrated({
   bondingCurve,
   minTokensOut,
   isMayhem,
+  isJito,
+  priorityFee,
+  jitoFee,
 }: {
   tokenAddress: string;
   amount: bigint;
@@ -32,12 +38,17 @@ export async function swapNonMigrated({
   bondingCurve: PublicKey;
   minTokensOut?: bigint;
   isMayhem: boolean;
+  isJito: boolean;
+  priorityFee: number;
+  jitoFee: number;
 }) {
-  const txn = new Transaction();
+  const ixns: TransactionInstruction[] = [];
   const tokenAddressPublicKey = new PublicKey(tokenAddress);
 
-  txn.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 150000 }));
-  txn.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 6666666 }));
+  ixns.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 150000 }));
+  ixns.push(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 6666666 })
+  );
 
   const accountInfo = await connection.getAccountInfo(tokenAddressPublicKey);
   if (!accountInfo) {
@@ -56,7 +67,7 @@ export async function swapNonMigrated({
 
   if (side === "buy") {
     if (!ataInfo) {
-      txn.add(
+      ixns.push(
         createAssociatedTokenAccountIdempotentInstruction(
           keypair.publicKey,
           ata,
@@ -101,7 +112,7 @@ export async function swapNonMigrated({
       })
       .instruction();
 
-    txn.add(buyIx);
+    ixns.push(buyIx);
   } else {
     const minTokensOutBN = new BN(minTokensOut ? minTokensOut.toString() : "1");
 
@@ -122,31 +133,71 @@ export async function swapNonMigrated({
       })
       .instruction();
 
-    txn.add(sellIx);
+    ixns.push(sellIx);
   }
 
-  // Sign and send the transaction
-  txn.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  txn.feePayer = keypair.publicKey;
-  txn.sign(keypair);
+  if (isJito) {
+    const randomTipAccount = new PublicKey(
+      "noz3jAjPiHuBPqiSPkkugaJDkJscPuRhYnSpbi8UvC4"
+    );
+    ixns.push(
+      SystemProgram.transfer({
+        fromPubkey: keypair.publicKey,
+        toPubkey: new PublicKey(randomTipAccount),
+        lamports: jitoFee,
+      })
+    );
 
-  const signature = await connection.sendRawTransaction(txn.serialize(), {
-    skipPreflight: false,
-    preflightCommitment: "confirmed",
-  });
+    const { blockhash } = await connection.getLatestBlockhash();
 
-  console.log("Transaction sent:", signature);
+    const messageV0 = new TransactionMessage({
+      payerKey: keypair.publicKey,
+      recentBlockhash: blockhash,
+      instructions: ixns,
+    }).compileToV0Message();
 
-  // Wait for confirmation
-  const confirmation = await connection.confirmTransaction(
-    signature,
-    "confirmed"
-  );
+    const versionedTxn = new VersionedTransaction(messageV0);
 
-  if (confirmation.value.err) {
-    throw new Error(`Transaction failed: ${confirmation.value.err}`);
+    versionedTxn.sign([keypair]);
+
+    const signature = await nozomiRpcClient.sendTransaction(versionedTxn);
+    console.log("Transaction sent:", signature);
+
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(
+      signature,
+      "confirmed"
+    );
+
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${confirmation.value.err}`);
+    }
+
+    console.log("Transaction confirmed:", signature);
+  } else {
+    //   Sign and send the transaction
+    const txn = new Transaction();
+    txn.add(...ixns);
+    txn.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    txn.feePayer = keypair.publicKey;
+    txn.sign(keypair);
+    const signature = await connection.sendRawTransaction(txn.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    });
+
+    console.log("Transaction sent:", signature);
+
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(
+      signature,
+      "confirmed"
+    );
+
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${confirmation.value.err}`);
+    }
+
+    console.log("Transaction confirmed:", signature);
   }
-
-  console.log("Transaction confirmed:", signature);
-  return signature;
 }

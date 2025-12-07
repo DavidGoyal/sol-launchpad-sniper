@@ -13,11 +13,17 @@ export async function swapPumpfun({
   amount,
   side,
   slippageBps = 500,
+  isJito = false,
+  priorityFee = 0,
+  jitoFee = 0,
 }: {
   tokenAddress: string;
   amount: bigint;
   side: "buy" | "sell";
   slippageBps?: number;
+  isJito?: boolean;
+  priorityFee?: number;
+  jitoFee?: number;
 }) {
   try {
     const bondingCurveInfo = await getBondingCurveStatePumpfun(
@@ -33,6 +39,9 @@ export async function swapPumpfun({
         amount,
         side,
         poolAuthority: bondingCurveInfo.poolAuthority,
+        isJito,
+        priorityFee,
+        jitoFee,
       });
       return;
     } else {
@@ -55,6 +64,9 @@ export async function swapPumpfun({
         isMayhem: bondingCurveInfo.bondingCurveState.isMayhemMode
           ? true
           : false,
+        isJito,
+        priorityFee,
+        jitoFee,
       });
       return;
     }

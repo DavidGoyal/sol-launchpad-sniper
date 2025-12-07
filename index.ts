@@ -6,14 +6,16 @@ import { swapMeteora } from "./meteora/swap";
 async function main() {
   try {
     const solAmount = 0.1;
-    const tokenAmount = 10833.571785;
+    const tokenAmount = 3139029.412752;
     const amountInLamports = BigInt(Math.floor(solAmount * LAMPORTS_PER_SOL));
     const amountInTokens = BigInt(Math.floor(tokenAmount * 10 ** 6));
 
-    await swapRaydium({
-      tokenAddress: "5SQ4AnAyPf8veVLkTkVb6xYFsQohMVEeHGULkydai454",
-      amount: tokenAmount,
+    await swapPumpfun({
+      tokenAddress: "8iNowazt2QMvwcUUz5qipeZMSvoGbeA145T64Xd6pump",
+      amount: amountInTokens,
       side: "sell",
+      isJito: true,
+      jitoFee: 1000000,
     });
   } catch (error) {
     console.error(error);
